@@ -123,7 +123,7 @@ def Q_cal(V, func):
     return Q
 
 
-# calculate the optimal reward via QP
+# calculate the optimal reward via C:\Users\39356\OneDrive\Documents\GitHub\ARNPG-MORL\Tabular MDP (oracle)\ARNPG_smooth.pyQP
 model = Model()
 # create continuous variables
 idx = [(i, j) for i in range(s) for j in range(a)]

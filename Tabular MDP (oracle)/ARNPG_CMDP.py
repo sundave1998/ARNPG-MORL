@@ -85,8 +85,13 @@ class CMDP_ARNPG(CMDP_NPG):
         mat = np.identity(self.s * self.a) - self.gamma * np.matmul(self.prob_transition, Pi)
         P_theta = np.matmul(Pi, self.prob_transition)
         d_pi = (1 - self.gamma) * np.dot(np.transpose((np.linalg.inv(np.identity(self.s) - self.gamma * P_theta))), self.rho)
-#         d_pi = (1 - self.gamma) * np.dot(np.transpose((np.linalg.inv(np.identity(self.s) - self.gamma * P_theta))), self.rho)
+        d_pi = (1 - self.gamma) * np.dot(np.transpose((np.linalg.inv(np.identity(self.s) - self.gamma * P_theta))), self.rho)
         
         Vg = np.dot(np.linalg.inv(np.identity(self.s) - self.gamma * P_theta), np.matmul(Pi, self.utility))
         qgvals = self.Q_cal(Vg, self.utility)
         self.dual = max(self.dual - self.dualstep * (self.ell(qgvals, prob) - self.b), self.dualstep * (self.ell(qgvals, prob) - self.b))
+
+
+
+
+        

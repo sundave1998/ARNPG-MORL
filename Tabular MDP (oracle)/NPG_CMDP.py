@@ -10,6 +10,7 @@ class CMDP_NPG(MDP):
         self.dualstep = 1
         self.violation = []
         self.acc_avg_violation = 0
+        self.dual = 0
 
 
 
