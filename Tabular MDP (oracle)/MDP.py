@@ -104,15 +104,14 @@ class MDP:
         return ell
 
 
-#     def proj(self, scalar, offset = 100):
-# #         offset = 100
-#         if scalar < 0:
-#             scalar = 0
+    # def proj(self, scalar, offset = 100):
+    #     if scalar < 0:
+    #         scalar = 0
 
-#         if scalar > offset:
-#             scalar = offset
+    #     if scalar > offset:
+    #         scalar = offset
 
-#         return scalar
+    #     return scalar
 
     def Q_cal(self, V, func):
         """
