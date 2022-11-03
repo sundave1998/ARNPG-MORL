@@ -23,11 +23,10 @@ class MARL_agent:
         self.theta = np.random.uniform(0, 1, size=n* s* a)
         # self.theta = np.random.uniform(0, 1, size=(n, s, a))
         
-        self.avg_gap = []
         self.gap = []
         self.acc_avg_gap = 0
         self.iter_num = 0
-        self.step = 1
+        self.step = 0.1
         self.div_number = 1
 
 
@@ -249,167 +248,8 @@ class MARL_agent:
             # self.model.objective_value - avg_reward
             if verbose:
                 print('Average gap:', self.acc_avg_gap / (self.iter_num))
-            self.avg_gap.append(self.acc_avg_gap / (self.iter_num))
-            self.gap.append(np.log(avg_reward))
+            self.gap.append(self.acc_avg_gap / (self.iter_num))
             # self.V1.append(avg_reward)
             # self.V2.append(avg_utility)
             
-class MO_MARL(MARL_agent):
-    def __init__(self, rewards, s, a, rho, gamma, n, prob_transition, model=None):
-        super().__init__(rewards, s, a, rho, gamma, n, prob_transition, model)
-        self.V_record = [[] for _ in range(self.obj_num)]
-        
 
-
-    def Centralized_NPG_step(self, verbose=False):
-        
-        self.iter_num += 1
-        if verbose: print("iteration:", self.iter_num)
-
-        prob = self.theta_to_policy()    
-        Pi = self.get_Pi(prob)
-        mat = np.identity(self.s * self.A) - self.gamma * np.matmul(self.prob_transition, Pi)
-        P_theta = np.matmul(Pi, self.prob_transition)
-        d_pi = (1 - self.gamma) * np.dot(np.transpose((np.linalg.inv(np.identity(self.s) - self.gamma * P_theta))), self.rho)
-
-        # V(s): |S|*1
-        V_list = []
-        for i in range(self.obj_num):
-            V_list.append(np.dot(np.linalg.inv(np.identity(self.s) - self.gamma * P_theta), np.matmul(Pi, self.rewards[i])))
-        # Vr = np.dot(np.linalg.inv(np.identity(self.s) - self.gamma * P_theta), np.matmul(Pi, self.rewards[0]))
-        # Vg = np.dot(np.linalg.inv(np.identity(self.s) - self.gamma * P_theta), np.matmul(Pi, self.utility))
-
-        # V(\rho): 1*1
-        v_vals_list = np.zeros(self.obj_num)
-        for i in range(self.obj_num):
-            v_vals_list[i] = np.dot(np.transpose(V_list[i]), self.rho)
-
-        total_V = np.zeros(V_list[0].shape)
-        for i in range(self.obj_num):
-            total_V += V_list[i]/v_vals_list[i]
-        vvals = np.dot(np.transpose(total_V), self.rho)
-        # vrvals = np.dot(np.transpose(Vr), self.rho)
-        # vgvals = np.dot(np.transpose(Vg), self.rho)
-        # V = Vr 
-        # vvals = np.dot(np.transpose(V), self.rho)
-        q_vals_list = []
-        for i in range(self.obj_num):
-            q_vals_list.append(self.Q_cal(V_list[i], self.rewards[i]))
-        # qrvals = self.Q_cal(Vr, self.rewards[0])
-        # qgvals = self.Q_cal(Vg, self.utility)
-        # qvals = self.Q_cal(V, self.reward / vrvals + self.utility / vgvals)
-
-        global_reward = np.zeros(self.rewards[0].shape)
-        for i in range(self.obj_num):
-            global_reward += self.rewards[i]/v_vals_list[i]
-        qvals = self.Q_cal(total_V, global_reward)
-
-        MPinverse = np.linalg.pinv(self.Fisher_info(prob, d_pi))
-        gradient = self.grad(qvals-vvals, prob, d_pi)
-        naturalgradient = np.matmul(MPinverse, gradient)
-
-        self.theta += self.step * naturalgradient
-
-        if self.iter_num % self.div_number == 0:
-            # print(qrvals)
-
-            log_sum = 0
-            for i in range(self.obj_num):
-                self.V_record[i].append(self.ell(q_vals_list[i], prob))
-                log_sum+=np.log(self.ell(q_vals_list[i], prob))
-
-            # avg_reward = self.ell(qrvals, prob)
-            # avg_utility = self.ell(qgvals, prob)
-
-            self.acc_avg_gap +=  log_sum
-            # self.model.objective_value - avg_reward
-            if verbose:
-                print('Average gap:', self.acc_avg_gap / (self.iter_num))
-            self.gap.append(log_sum)
-            self.avg_gap.append(self.acc_avg_gap / (self.iter_num))
-            # self.V1.append(avg_reward)
-            # self.V2.append(avg_utility)
-
-    def calculate_G(self, num=None, verbose=False):
-        
-        # self.iter_num += 1
-        if verbose: print("Calculate G of iteration:", self.iter_num+1)
-
-        prob = self.theta_to_policy()    
-        Pi = self.get_Pi(prob)
-        mat = np.identity(self.s * self.A) - self.gamma * np.matmul(self.prob_transition, Pi)
-        P_theta = np.matmul(Pi, self.prob_transition)
-        d_pi = (1 - self.gamma) * np.dot(np.transpose((np.linalg.inv(np.identity(self.s) - self.gamma * P_theta))), self.rho)
-
-        # V(s): |S|*1
-        # Calculate for all objectives
-        V_list = []
-        for i in range(self.obj_num):
-            V_list.append(np.dot(np.linalg.inv(np.identity(self.s) - self.gamma * P_theta), np.matmul(Pi, self.rewards[i])))
-        # Vr = np.dot(np.linalg.inv(np.identity(self.s) - self.gamma * P_theta), np.matmul(Pi, self.rewards[0]))
-        # Vg = np.dot(np.linalg.inv(np.identity(self.s) - self.gamma * P_theta), np.matmul(Pi, self.utility))
-
-        v_vals_list = np.zeros(self.obj_num)
-        if num==None:
-            if verbose:
-                print("return global gradient")
-            for i in range(self.obj_num):
-                v_vals_list[i] = 1/np.dot(np.transpose(V_list[i]), self.rho)
-        else:
-            if verbose:
-                print("return local gradient")
-            v_vals_list[num] = 1/np.dot(np.transpose(V_list[num]), self.rho)
-        
-        return v_vals_list
-
-    def NPG_step_given_G(self, direction, verbose=False):
-        
-        self.iter_num += 1
-        if verbose: print("step towards direction at iteration:", self.iter_num)
-
-        prob = self.theta_to_policy()    
-        Pi = self.get_Pi(prob)
-        mat = np.identity(self.s * self.A) - self.gamma * np.matmul(self.prob_transition, Pi)
-        P_theta = np.matmul(Pi, self.prob_transition)
-        d_pi = (1 - self.gamma) * np.dot(np.transpose((np.linalg.inv(np.identity(self.s) - self.gamma * P_theta))), self.rho)
-
-        # V(s): |S|*1
-        # Calculate for all objectives
-        V_list = []
-        for i in range(self.obj_num):
-            V_list.append(np.dot(np.linalg.inv(np.identity(self.s) - self.gamma * P_theta), np.matmul(Pi, self.rewards[i])))
-
-        total_V = np.zeros(V_list[0].shape)
-        for i in range(self.obj_num):
-            total_V += V_list[i]*direction[i]
-        # V = Vr / vrvals + Vg / vgvals
-        vvals = np.dot(np.transpose(total_V), self.rho)
-
-        q_vals_list = []
-        for i in range(self.obj_num):
-            q_vals_list.append(self.Q_cal(V_list[i], self.rewards[i]))
-
-        global_reward = np.zeros(self.rewards[0].shape)
-        for i in range(self.obj_num):
-            global_reward += self.rewards[i]*direction[i]
-        qvals = self.Q_cal(total_V, global_reward)
-
-        MPinverse = np.linalg.pinv(self.Fisher_info(prob, d_pi))
-        gradient = self.grad(qvals - vvals, prob, d_pi)
-        naturalgradient = np.matmul(MPinverse, gradient)
-
-        self.theta += self.step * naturalgradient
-
-        if self.iter_num % self.div_number == 0:
-
-            log_sum = 0
-            for i in range(self.obj_num):
-                self.V_record[i].append(self.ell(q_vals_list[i], prob))
-                log_sum+=np.log(self.ell(q_vals_list[i], prob))
-
-            self.acc_avg_gap +=  log_sum
-            
-            if verbose:
-                print('Average gap:', self.acc_avg_gap / (self.iter_num))
-            self.gap.append(log_sum)
-            self.avg_gap.append(self.acc_avg_gap / (self.iter_num))
