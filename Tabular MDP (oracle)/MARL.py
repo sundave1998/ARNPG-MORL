@@ -21,7 +21,6 @@ class MARL_agent:
         
         self.obj_num = len(rewards)
         self.theta = np.random.uniform(0, 1, size=n* s* a)
-        # self.theta = np.ones(n* s* a)
         # self.theta = np.random.uniform(0, 1, size=(n, s, a))
         
         self.avg_gap = []
@@ -229,7 +228,7 @@ class MARL_agent:
                         multiplier*= prob[agent*(self.s*self.a)+state*self.a+local_action]
                     else:
                         agent_action = local_action
-                Q_tilde[state*self.a+agent_action] += Q[state*self.a+global_action]*multiplier
+                Q_tilde[state*self.a+agent_action] += Q[state*self.A+global_action]*multiplier
 
 
                 # Q[i * self.A + j] = func[i * self.A + j] + self.gamma * np.matmul(self.prob_transition[i * self.A + j], V)
@@ -253,10 +252,8 @@ class MARL_agent:
                     temp = int(temp/self.a)
                     if agent==i:
                         agent_action = local_action
-                        # break
-                # print(action)
+                        break
                 A_tau[state*self.A+action] -= (self.tau*np.log(prob[agent*(self.s*self.a)+state*self.a+local_action]) + V_tau[state])
-                # print("for agent:", agent, state, agent_action, A_tau[state*self.A+action])
         return A_tau
 
 
@@ -352,6 +349,7 @@ class MARL_agent:
             q_taus.append(q_tau_i)
             Q_tildes.append(self.tilde_cal(q_tau_i, prob, agent))
             A_tau = self.A_tau_cal(q_tau_i, prob, V_taus[agent], agent)
+            A_taus.append(A_tau)
             A_tildes.append(self.tilde_cal(A_tau, prob, agent))
 
         if verbose:
@@ -361,9 +359,9 @@ class MARL_agent:
             # print("V_taua", V_taus)
 
             # print("q_tau", q_taus)
-            print("A_tau", A_tau)
+            print("A_taus", A_taus)
             print("A_tildes", A_tildes)
-            # print("theta", self.theta)
+            print("theta", self.theta)
             print("prob", prob[:])
             
 
@@ -378,7 +376,7 @@ class MARL_agent:
         # self.theta += self.step * naturalgradient
         for agent in range(self.n):
             self.theta[agent*(self.s*self.a):(agent+1)*(self.s*self.a)] += self.step * (1/(1-self.gamma))* A_tildes[agent]
-        self.theta -= np.min(self.theta)
+        # self.theta -= np.min(self.theta)
         # self.theta = np.minimum(self.theta, 20)
 
         if self.iter_num % self.div_number == 0:
