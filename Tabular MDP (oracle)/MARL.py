@@ -326,24 +326,35 @@ class MARL_agent:
         d_pi = (1 - self.gamma) * np.dot(np.transpose((np.linalg.inv(np.identity(self.s) - self.gamma * P_theta))), self.rho)
 
         # V(s): |S|*1
+        # d_s = np.linalg.inv(np.identity(self.s) - self.gamma * P_theta)
+        # Vr = np.dot(np.linalg.inv(np.identity(self.s) - self.gamma * P_theta), np.matmul(Pi, self.rewards[0]))
+        # V_taus = []
+        # V_tau_global = np.zeros(self.s)
+        # for agent in range(self.n):
+        #     entropy_s = np.zeros(self.s)
+        #     # V_tau_i = np.copy(Vr)
+        #     for state in range(self.s):
+        #         entropy_s[state] += -np.dot(np.log(prob[agent*(self.s*self.a)+state*self.a:agent*(self.s*self.a)+(state+1)*self.a]), prob[agent*(self.s*self.a)+state*self.a:agent*(self.s*self.a)+(state+1)*self.a])
+        #     H_s = np.dot(np.transpose((np.linalg.inv(np.identity(self.s) - self.gamma * P_theta))), entropy_s)
+        #     V_tau_i = Vr + self.tau*H_s
+        #     V_taus.append(V_tau_i)
+        #     V_tau_global += V_tau_i
         d_s = np.linalg.inv(np.identity(self.s) - self.gamma * P_theta)
         Vr = np.dot(np.linalg.inv(np.identity(self.s) - self.gamma * P_theta), np.matmul(Pi, self.rewards[0]))
-        V_taus = []
-        V_tau_global = np.zeros(self.s)
-        for agent in range(self.n):
-            entropy_s = np.zeros(self.s)
-            # V_tau_i = np.copy(Vr)
-            for state in range(self.s):
-                entropy_s[state] += -np.dot(np.log(prob[agent*(self.s*self.a)+state*self.a:agent*(self.s*self.a)+(state+1)*self.a]), prob[agent*(self.s*self.a)+state*self.a:agent*(self.s*self.a)+(state+1)*self.a])
-            H_s = np.dot(np.transpose((np.linalg.inv(np.identity(self.s) - self.gamma * P_theta))), entropy_s)
-            V_tau_i = Vr + self.tau*H_s
-            V_taus.append(V_tau_i)
-            V_tau_global += V_tau_i
+        log_prob = np.zeros(self.s * self.A)
+        for state in range(self.s):
+            for action in range(self.A):
+                temp = action
+                for agent in range(self.n):
+                    local_action = temp%self.a
+                    temp = int(temp/self.a)
+                    log_prob[state*self.A+action] += np.log(prob[agent*self.s*self.a+state*self.a+local_action])         
+        V_tau = np.dot(np.linalg.inv(np.identity(self.s) - self.gamma * P_theta), np.matmul(Pi, self.rewards[0] - self.tau * log_prob))
+
         # Vg = np.dot(np.linalg.inv(np.identity(self.s) - self.gamma * P_theta), np.matmul(Pi, self.utility))
 
         # V(\rho): 1*1
         vrvals = np.dot(np.transpose(Vr), self.rho)
-        # vgvals = np.dot(np.transpose(Vg), self.rho)
         V = Vr 
         vvals = np.dot(np.transpose(V), self.rho)
         v_tau_vals = np.dot(np.transpose(V_tau_global), self.rho)
@@ -362,30 +373,11 @@ class MARL_agent:
             A_taus.append(A_tau)
             A_tildes.append(self.tilde_cal(A_tau, prob, agent))
 
-        
-            
-
-
-        # qgvals = self.Q_cal(Vg, self.utility)
-        # qvals = self.Q_cal(V, self.reward / vrvals + self.utility / vgvals)
-
-        # MPinverse = np.linalg.pinv(self.Fisher_info(prob, d_pi))
-        # gradient = self.grad(qrvals, prob, d_pi)
-        # naturalgradient = np.matmul(MPinverse, gradient)
-
-        # self.theta += self.step * naturalgradient
         for agent in range(self.n):
             self.theta[agent*(self.s*self.a):(agent+1)*(self.s*self.a)] += self.step * (1/(1-self.gamma))* A_tildes[agent]
-        # self.theta -= np.min(self.theta)
-        # self.theta = np.minimum(self.theta, 20)
-        if verbose:
-            # print("iteration")
-            # print("V_tau_global", V_tau_global)
-            # print("q_tau_global", q_tau_global)
-            # print("V_taua", V_taus)
 
-            # print("q_tau", q_taus)
-            # print("A_taus", A_taus)
+        if verbose:
+
             print("A_tildes", A_tildes)
             print("theta", self.theta)
             print("prob", prob[:])
@@ -407,6 +399,12 @@ class MARL_agent:
             
     def NPG_entropy_step_change(self, verbose=False):
         
+        def cal_Q_tildes(Atildes, Pi, Vtau, tau=0.1):
+            Q_tildes = np.zeros(self.n*self.s*self.a)
+            for agent in range(self.n):
+                for state in range(self.s):
+                    Q_tildes[agent*self.s*self.a+state*self.a:agent*self.s*self.a+(state+1)*self.a] = Atildes[agent][state*self.a:(state+1)*self.a] + tau * np.log(Pi[state*self.a:(state+1)*self.a]) + Vtau[state]
+            return Q_tildes
         self.iter_num += 1
         if verbose: print("iteration:", self.iter_num)
 
@@ -419,17 +417,30 @@ class MARL_agent:
         # V(s): |S|*1
         d_s = np.linalg.inv(np.identity(self.s) - self.gamma * P_theta)
         Vr = np.dot(np.linalg.inv(np.identity(self.s) - self.gamma * P_theta), np.matmul(Pi, self.rewards[0]))
-        # V_taus = []
-        V_tau = np.zeros(self.s)
-        # for agent in range(self.n):
-        entropy_s = np.zeros(self.s)
-        # V_tau_i = np.copy(Vr)
+        
+        log_prob = np.zeros(self.s * self.A)
         for state in range(self.s):
-            for agent in range(self.n):
-                entropy_s[state] += -np.dot(np.log(prob[agent*(self.s*self.a)+state*self.a:agent*(self.s*self.a)+(state+1)*self.a]), prob[agent*(self.s*self.a)+state*self.a:agent*(self.s*self.a)+(state+1)*self.a])
-        H_s = np.dot(np.transpose((np.linalg.inv(np.identity(self.s) - self.gamma * P_theta))), entropy_s)
-        V_tau = Vr + self.tau*H_s
-            # V_tau_i = Vr + self.tau*H_s
+            for action in range(self.A):
+                temp = action
+                for agent in range(self.n):
+                    local_action = temp%self.a
+                    temp = int(temp/self.a)
+                    log_prob[state*self.A+action] += np.log(prob[agent*self.s*self.a+state*self.a+local_action])         
+        V_tau = np.dot(np.linalg.inv(np.identity(self.s) - self.gamma * P_theta), np.matmul(Pi, self.rewards[0] - self.tau * log_prob))
+
+        # d_s = np.linalg.inv(np.identity(self.s) - self.gamma * P_theta)
+        # Vr = np.dot(np.linalg.inv(np.identity(self.s) - self.gamma * P_theta), np.matmul(Pi, self.rewards[0]))
+        # # V_taus = []
+        # V_tau = np.zeros(self.s)
+        # # for agent in range(self.n):
+        # entropy_s = np.zeros(self.s)
+        # # V_tau_i = np.copy(Vr)
+        # for state in range(self.s):
+        #     for agent in range(self.n):
+        #         entropy_s[state] += -np.dot(np.log(prob[agent*(self.s*self.a)+state*self.a:agent*(self.s*self.a)+(state+1)*self.a]), prob[agent*(self.s*self.a)+state*self.a:agent*(self.s*self.a)+(state+1)*self.a])
+        # H_s = np.dot(np.transpose((np.linalg.inv(np.identity(self.s) - self.gamma * P_theta))), entropy_s)
+        # V_tau = Vr + self.tau*H_s
+        #     # V_tau_i = Vr + self.tau*H_s
             # V_taus.append(V_tau_i)
             # V_tau_global += V_tau_i
         # Vg = np.dot(np.linalg.inv(np.identity(self.s) - self.gamma * P_theta), np.matmul(Pi, self.utility))
@@ -454,39 +465,18 @@ class MARL_agent:
         #     q_taus.append(q_tau_i)
         #     Q_tildes.append(self.tilde_cal(q_tau_i, prob, agent))
             A_tildes.append(self.tilde_cal(A_tau, prob, agent))
-
+        self.Q_tilde.append(cal_Q_tildes(A_tildes, prob, V_tau, tau=self.tau))
         
-            
 
-
-        # qgvals = self.Q_cal(Vg, self.utility)
-        # qvals = self.Q_cal(V, self.reward / vrvals + self.utility / vgvals)
-
-        # MPinverse = np.linalg.pinv(self.Fisher_info(prob, d_pi))
-        # gradient = self.grad(qrvals, prob, d_pi)
-        # naturalgradient = np.matmul(MPinverse, gradient)
-
-        # self.theta += self.step * naturalgradient
         for agent in range(self.n):
             self.theta[agent*(self.s*self.a):(agent+1)*(self.s*self.a)] += self.step * (1/(1-self.gamma))* A_tildes[agent]
-        # self.theta -= np.min(self.theta)
-        # self.theta = np.minimum(self.theta, 20)
 
         if verbose:
-            # print("iteration")
-            # print("V_tau_global", V_tau_global)
-            # print("q_tau_global", q_tau_global)
-            # print("V_taua", V_taus)
-
-            # print("q_tau", q_taus)
-            # print("A_taus", A_taus)
             print("A_tildes", A_tildes)
             print("theta", self.theta)
             print("prob", prob[:])
         if self.iter_num % self.div_number == 0:
-            # print(qrvals)
 
-            # avg_reward = self.ell(q_tau_global, prob)
             avg_reward = v_tau_vals
             # avg_utility = self.ell(qgvals, prob)
 
@@ -496,8 +486,14 @@ class MARL_agent:
                 print('Average gap:', self.acc_avg_gap / (self.iter_num))
             self.avg_gap.append(self.acc_avg_gap / (self.iter_num))
             self.gap.append((avg_reward))
-            # self.V1.append(avg_reward)
-            # self.V2.append(avg_utility)
+    def solver(self, typ='global'):
+        self.step = 0.1 * (1 - self.gamma) / self.tau
+        for _ in range(10000):
+            if typ == 'global':
+                A_tildes, prob, V_tau, A_tau = self.NPG_entropy_step_change(verbose=False)
+            else:
+                self.NPG_entropy_step(verbose=False)
+        return self.gap[-1], A_tildes, prob, V_tau
 
 
 
