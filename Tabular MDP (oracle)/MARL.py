@@ -267,6 +267,7 @@ class MARL_agent:
         d_s = np.linalg.inv(np.identity(self.s) - self.gamma * P_theta)
         Vr = np.dot(np.linalg.inv(np.identity(self.s) - self.gamma * P_theta), np.matmul(Pi, self.rewards[0]))
         
+        # calculate V_{tau, i}
         V_taus = []
         V_tau_global = np.zeros(self.s)
         log_prob = np.zeros(self.n * self.s * self.A)
@@ -279,7 +280,7 @@ class MARL_agent:
                     log_prob[agent*self.s*self.A+state*self.A+action] = np.log(prob[agent*self.s*self.a+state*self.a+local_action])    
         
         for agent in range(self.n):    
-            V_tau_i = np.dot(np.linalg.inv(np.identity(self.s) - self.gamma * P_theta), np.matmul(Pi, self.rewards[0] - self.tau * log_prob[agent]))
+            V_tau_i = np.dot(np.linalg.inv(np.identity(self.s) - self.gamma * P_theta), np.matmul(Pi, self.rewards[0] - self.tau * log_prob[agent*self.s*self.A:(agent+1)*self.s*self.A]))
             V_taus.append(V_tau_i)
             V_tau_global += V_tau_i
 
