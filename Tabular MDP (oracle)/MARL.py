@@ -31,7 +31,9 @@ class MARL_agent:
         self.step = 0.01
         self.div_number = 1
         self.Q_tilde = []
-
+        self.Q_global = []
+        # self.A_tilde = []
+        # self.A_all = []
         
     def theta_to_policy(self):
         """
@@ -328,7 +330,7 @@ class MARL_agent:
             Q_tildes = np.zeros(self.n*self.s*self.a)
             for agent in range(self.n):
                 for state in range(self.s):
-                    Q_tildes[agent*self.s*self.a+state*self.a:agent*self.s*self.a+(state+1)*self.a] = Atildes[agent][state*self.a:(state+1)*self.a] + tau * np.log(Pi[state*self.a:(state+1)*self.a]) + Vtau[state]
+                    Q_tildes[agent*self.s*self.a+state*self.a:agent*self.s*self.a+(state+1)*self.a] = Atildes[agent][state*self.a:(state+1)*self.a] + tau * np.log(Pi[agent*(self.s*self.a)+state*self.a:agent*(self.s*self.a)+(state+1)*self.a]) + Vtau[state]
             return Q_tildes
         
         self.iter_num += 1
@@ -364,6 +366,7 @@ class MARL_agent:
         for agent in range(self.n):
             A_tildes.append(self.tilde_cal(A_tau, prob, agent))
         self.Q_tilde.append(cal_Q_tildes(A_tildes, prob, V_tau, tau=self.tau))
+        self.Q_global.append(q_tau)
 
         for agent in range(self.n):
             self.theta[agent*(self.s*self.a):(agent+1)*(self.s*self.a)] += self.step * (1/(1-self.gamma))* A_tildes[agent]
@@ -381,7 +384,7 @@ class MARL_agent:
             self.avg_gap.append(self.acc_avg_gap / (self.iter_num))
             self.gap.append((avg_reward))
 
-        return A_tildes, prob, V_tau, A_tau
+        return A_tildes, prob, Pi, V_tau, A_tau
     
     
     def solver(self, typ='global'):
