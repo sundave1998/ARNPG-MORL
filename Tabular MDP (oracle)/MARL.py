@@ -234,7 +234,39 @@ class MARL_agent:
                 # Q[i * self.A + j] = func[i * self.A + j] + self.gamma * np.matmul(self.prob_transition[i * self.A + j], V)
         return Q_tilde
 
-    def A_tau_cal(self, Q_tau, prob, V_tau, agent):
+#     def A_tau_cal(self, Q_tau, prob, V_tau, agent):
+#         """
+#         Calculate A from Q value function
+#         :param Q: |S||A| * 1
+#         :param V: |S| * 1
+#         :param prob: n*|S|*|a| 
+#         :param i: agent number
+#         :return: A |S||A| * 1
+#         """
+#         A_tau = np.copy(Q_tau)
+#         for state in range(self.s):
+#             for action in range(self.A):
+#                 if agent == -1:
+#                     temp = action
+#                     multiplier = 1
+#                     for i in range(self.n):
+#                         local_action = temp%self.a
+#                         temp = int(temp/self.a)
+#                         A_tau[state*self.A+action] -= self.tau*np.log(prob[i*(self.s*self.a)+state*self.a+local_action])
+
+#                     A_tau[state*self.A+action] -= V_tau[state]
+#                 else:
+#                     temp = action
+#                     for i in range(self.n):
+#                         local_action = temp%self.a
+#                         temp = int(temp/self.a)
+#                         if agent==i:
+#                             agent_action = local_action
+#                             break
+#                     A_tau[state*self.A+action] -= (self.tau*np.log(prob[agent*(self.s*self.a)+state*self.a+local_action]) + V_tau[state])
+#         return A_tau
+
+    def A_tau_cal(self, Q_tau, Pi, V_tau, agent):
         """
         Calculate A from Q value function
         :param Q: |S||A| * 1
@@ -247,12 +279,13 @@ class MARL_agent:
         for state in range(self.s):
             for action in range(self.A):
                 if agent == -1:
-                    temp = action
-                    multiplier = 1
-                    for i in range(self.n):
-                        local_action = temp%self.a
-                        temp = int(temp/self.a)
-                        A_tau[state*self.A+action] -= self.tau*np.log(prob[i*(self.s*self.a)+state*self.a+local_action])
+                    A_tau[state*self.A+action] -= self.tau*np.log(Pi[state,(state*self.A)+action])
+                    # temp = action
+                    # multiplier = 1
+                    # for i in range(self.n):
+                    #     local_action = temp%self.a
+                    #     temp = int(temp/self.a)
+                    #     A_tau[state*self.A+action] -= self.tau*np.log(prob[i*(self.s*self.a)+state*self.a+local_action])
 
                     A_tau[state*self.A+action] -= V_tau[state]
                 else:
@@ -265,6 +298,7 @@ class MARL_agent:
                             break
                     A_tau[state*self.A+action] -= (self.tau*np.log(prob[agent*(self.s*self.a)+state*self.a+local_action]) + V_tau[state])
         return A_tau
+
 
 
 
@@ -419,6 +453,8 @@ class MARL_agent:
         # V(s): |S|*1
         d_s = np.linalg.inv(np.identity(self.s) - self.gamma * P_theta)
         Vr = np.dot(np.linalg.inv(np.identity(self.s) - self.gamma * P_theta), np.matmul(Pi, self.rewards[0]))
+        
+        
         # V_taus = []
         V_tau = np.zeros(self.s)
         # for agent in range(self.n):
@@ -436,6 +472,7 @@ class MARL_agent:
 
         # V(\rho): 1*1
         vrvals = np.dot(np.transpose(Vr), self.rho)
+        # vrvals = np.dot(np.transpose(Vr), d_pi)
         # vgvals = np.dot(np.transpose(Vg), self.rho)
         # V = Vr 
         # vvals = np.dot(np.transpose(V), self.rho)
@@ -446,14 +483,17 @@ class MARL_agent:
         # q_taus = []
         # Q_tildes = []
         # A_taus = []
-        A_tildes = []        
-        A_tau = self.A_tau_cal(q_tau, prob, V_tau, -1)
+        A_tildes = []
+        # A_tau = self.A_tau_cal(q_tau, prob, V_tau, -1)
+        A_tau = self.A_tau_cal(q_tau, Pi, V_tau, -1)
 
         for agent in range(self.n):
         #     q_tau_i = self.Q_cal(V_taus[agent], self.rewards[0])
         #     q_taus.append(q_tau_i)
         #     Q_tildes.append(self.tilde_cal(q_tau_i, prob, agent))
             A_tildes.append(self.tilde_cal(A_tau, prob, agent))
+            
+        print(A_tildes)
 
         
             
