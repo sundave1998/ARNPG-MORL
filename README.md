@@ -1,5 +1,5 @@
-## **Anchor-Changing Regularized Natural Policy Gradient for Multi-Objective Reinforcement Learning**
-[*Code for ''Anchor-Changing Regularized Natural Policy Gradient for Multi-Objective Reinforcement Learning'' (NeurIPS 2022)*](https://arxiv.org/abs/2206.05357)
+## **Provably Fast Convergence of Independent Natural Policy Gradient for Markov Potential Games**
+[*Code for ''Provably Fast Convergence of Independent Natural Policy Gradient for Markov Potential Games'' (NeurIPS 2023)*](https://arxiv.org/abs/TBD)
 
 
 ### Prerequisites
